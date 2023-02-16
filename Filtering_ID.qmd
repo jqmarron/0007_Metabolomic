@@ -1,0 +1,1545 @@
+---
+title: "Metabolomics and BW trajectories"
+subtitle: "BW trajectories (Include outliers :`r params$outliers`) (Impute missing:`r params$impute`)"
+author: Jorge Martinez-Romero
+format: html
+editor: visual
+execute:
+  echo: false
+params:
+ outliers: true ## Presence of outliers 
+ notch: false  ## Notches in boxplot 
+ harmonize: false
+ impute: false
+editor_options: 
+  chunk_output_type: console
+  warning: false
+toc: true   
+self-contained: true
+---
+
+```{r}
+#| echo: false
+#| warning: false
+#| include: false
+
+pacman::p_load(readxl, gtsummary, janitor, hablar, tictoc, fs, kableExtra, DT)
+pacman::p_load(tidyverse,reshape2,rstatix,ggpubr,LaplacesDemon,glmm,jtools)
+#loadfonts(device = "win")extrafont,
+
+```
+
+# Statistical analysis
+
+## Goal
+
+Detecting eventual association between BW trajectories, lifespan and metabolites of interest across age-ranges/time-points.
+
+#### Groups:
+
+-   HET3
+
+    -   Females
+
+    -   Males
+
+-   B6
+
+    -   Females
+
+    -   Males
+
+#### Variables to analyze:
+
+BW, metabolites.
+
+## Workflow
+
+### Read in data
+
+BW data
+
+```{r}
+#| echo: false
+#| warning: false
+#| include: false
+slam <- read_excel("Tables/Source/advia_slam_compiled_2022_03_03_Clean_XL.xlsx",
+col_types = c("text", "text", "text",
+"text", "text", "text", "date", "text",
+"text", "text", "numeric", "date",
+"date", "numeric", "text", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"text", "numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "text", "text",
+"text", "text", "text", "numeric",
+"numeric", "numeric", "text", "text",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "text", "text",
+"text", "text", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "text", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"text", "text", "text", "text", "text",
+"text", "numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "text", "text",
+"text", "text", "text", "text", "text",
+"text", "text", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "text", "numeric",
+"numeric", "numeric", "text", "numeric",
+"numeric", "numeric", "numeric",
+"text", "text", "text", "text", "text",
+"text", "text", "text", "text", "text",
+"text", "text", "text", "text", "text",
+"text", "text", "text", "text", "text",
+"text", "text", "text", "text", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "text", "text", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "text", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "text"))
+```
+
+```{r}
+#| echo: false
+#| warning: false
+#| include: false
+HYPX <- read_excel("Tables/Source/Stephano_Raw_ADVIA_xls_1.xlsx",
+col_types = c("text", "text", "text",
+"date", "numeric", "text", "text",
+"text", "text", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "numeric", "numeric",
+"numeric", "text", "text", "text",
+"text"))
+
+
+
+```
+
+```{r}
+#| echo: false
+#| warning: false
+#| include: false
+Ref_values <- read_excel("Tables/Source/Jax_ref_52weeks_B6_F.xlsx")
+
+```
+
+```{r}
+if(params$filter_extra){
+  HYPX<-HYPX %>% filter(Treatment!="Extra")
+}
+```
+
+Clean covariates of interest
+
+```{r}
+#| echo: false
+#| warning: false
+#| include: false
+FeaturesSD<-sort(colnames(HYPX)[c(12:30,35:40,43,44,68,74,204,431)])
+Features<-sort(colnames(slam)[c(29:47,52:57,60,61,85,91,221,448)])
+slam$Treatment<-"Slam"
+datS<-slam %>% dplyr::select(Features)
+data_slm<-cbind(slam[,c(1,8,515,12,14,5,6,2)],datS)
+data_slm$wave<-1  
+data_slm <- data_slm %>% relocate(wave, .after = cohort)
+datH<-HYPX %>% dplyr::select(FeaturesSD)
+data_hpx<-cbind(HYPX[,c(1:8,497)],datH)
+colnames(datH)<-Features
+colnames(data_hpx)[c(1,8,2,6,7,5)]<-c("idno","cohort","cage","sex","strain","age_wk")
+rm(list=ls()[-c(1,2,5,8)])
+colnames(data_hpx)<-colnames(data_slm)
+all.equal(colnames(data_slm),colnames(data_hpx))
+```
+
+Variable to double
+
+```{r}
+#| echo: false
+#| warning: false
+#| include: false
+data_hpx <-
+  data_hpx |>
+  convert(dbl(`CHCMg(g/dL)` )) |>
+  convert(dbl(`CHg(pg)`)) 
+
+data_slm <-
+  data_slm |>
+  convert(dbl(`CHCMg(g/dL)` )) |>
+  convert(dbl(`CHg(pg)`)) 
+
+```
+
+Remove NAs SLAM
+
+```{r}
+#| include: false
+#| echo: false
+#Check NAs from SLAM
+apply(apply(data_slm,2,is.na),2,sum)
+#Remove 60 NAs from SLAM
+data_slm_removed<-data_slm %>% filter(is.na(`MCV(fL)`))
+data_slm<-data_slm %>% filter(!is.na(`MCV(fL)`))
+apply(apply(data_slm,2,is.na),2,sum)
+```
+
+### Covariates
+
+```{r}
+#Features of interest
+Features<-c(
+"# Plt Clumps",                "#Retic(x10E09 cells/L)",      "%BASO(%)",                   
+"%EOS(%)",                     "%LUC(%)",                     "%LYM(%)",                    
+"%MONO(%)",                    "%NEUT(%)",                    "%Retic(%)",                  
+"abs_basos(x10E03 cells/µL)",  "abs_eos(x10E03 cells/µL)",    "abs_lucs(x10E03 cells/µL)",  
+"abs_lymphs(x10E03 cells/µL)", "abs_monos(x10E03 cells/µL)",  "abs_neuts(x10E03 cells/µL)", 
+"CHCM(g/dL)",                  "CHCMg(g/dL)",                 "CHg(pg)",                    
+"HCT(%)",                      "HDW(g/dL)",                   "MCH(pg)",                    
+"MCHC(g/dL)",                  "MCV(fL)",                     "measHGB(g/dL)",              
+"MPV(fL)",                     "PCT(%)",                      "PDW(%)",                     
+"PLT(x10E03 cells/µL)",        "RBC(x10E06 cells/µL)",        "RDW(%)",                     
+"WBC(x10E03 cells/µL)" )
+
+
+
+
+```
+
+Filter SLAM: Out cohort on intervention, B6, females, only 35- to 45-week aged
+
+```{r}
+data_slm<-data_slm %>% 
+  filter(cohort!="11",cohort!="12",strain=="B6",sex=="F") %>% 
+  filter(age_wk>=35,age_wk<=45)
+
+```
+
+Check records with more than one test, same day, same animal ID
+
+```{r}
+Duplicated<-data_slm %>% 
+  group_by(idno,age_wk) %>% 
+  filter(n()>1)
+
+```
+
+Remove NAs Hpox
+
+```{r}
+data_hpx<-data_hpx %>% filter(!is.na(`MPV(fL)`))
+```
+
+### Remove dilution factor 1/4
+
+```{r}
+#| echo: false
+#| warning: false
+#remove dilution factor 1/4 only in SLAM (TRAIN+TEST)
+#diluted<-Features[c(1,9:14,18,23,27,28,30)]
+
+# PCT(%) is not diluted, correspond to the SD of the platelets distribution. More flat means more variability and more activation together with High MPV. However is not comparable because is more diluted. PDW(%) RDW(%) similar 
+ if(params$clumps_x4){
+  diluted<-c(
+  "#Retic(x10E09 cells/L)",      "abs_basos(x10E03 cells/µL)",  "abs_eos(x10E03 cells/µL)",   
+  "abs_lucs(x10E03 cells/µL)",   "abs_lymphs(x10E03 cells/µL)", "abs_monos(x10E03 cells/µL)", 
+  "abs_neuts(x10E03 cells/µL)",  "HCT(%)",                      "measHGB(g/dL)",              
+  "PLT(x10E03 cells/µL)",        "RBC(x10E06 cells/µL)",        "WBC(x10E03 cells/µL)",
+  "# Plt Clumps")   
+ }else{
+ diluted<-c(
+  "#Retic(x10E09 cells/L)",      "abs_basos(x10E03 cells/µL)",  "abs_eos(x10E03 cells/µL)",   
+  "abs_lucs(x10E03 cells/µL)",   "abs_lymphs(x10E03 cells/µL)", "abs_monos(x10E03 cells/µL)", 
+  "abs_neuts(x10E03 cells/µL)",  "HCT(%)",                      "measHGB(g/dL)",              
+  "PLT(x10E03 cells/µL)",        "RBC(x10E06 cells/µL)",        "WBC(x10E03 cells/µL)")
+ }
+
+# do not remove dilution factor in clumps
+#Pseudothrombocytopenia due to time in processing the sample and EDTA. PLT Clumps should be diluted but when we compare 1/4
+#with non-diluted the number of clumps increases in diluted
+
+data_slm<-data_slm %>% 
+    mutate_at(vars(all_of(diluted)),
+              .funs = funs(. * 4))
+data_hpx<-data_hpx %>% 
+    mutate_at(vars(all_of(diluted)),
+              .funs = funs(. * 4))
+  
+```
+
+### Zero inflation test
+
+```{r}
+zer<-data.frame(colSums(data_slm[,Features]==0))
+colnames(zer)<-"SLAM"
+zer$`%_slam`<-round((zer$SLAM/dim(data_slm)[1])*100,digit=2)
+zer$HPOX<-colSums(data_hpx[,Features]==0)
+zer$`%_hpox`<-round((zer$HPOX/dim(data_hpx)[1])*100,digit=2)
+zer<-zer %>% arrange(`%_hpox`)
+table_zeros<-DT::datatable(zer,caption="MICE WITH ZERO COUNTS")
+rm(zer)
+table_zeros
+```
+
+### Variable densities
+
+```{r}
+#| echo: false
+#| warning: false
+plotD<-function(x,df,n){
+
+  All_vb<-c(Features[x])
+data<-df %>% dplyr::select(all_of(All_vb))
+dff<-reshape2::melt(data, key = "variable", value = "value")
+p<-ggplot(dff, aes(value)) +
+  geom_density() +
+  theme(panel.background = element_rect(fill = "wheat"))+
+  facet_wrap(~variable, ncol = n,scales = "free")
+print(p)
+}
+```
+
+```{r}
+#| echo: false
+#| warning: false
+#| label: SLAM Variable  
+#| fig-cap: Density plot by variable.
+#| fig-height: 12
+#| fig-width: 7
+if(!params$filter_slam){
+cat("SLAM")
+n<-4
+a<-c(1:31)
+df<-data_slm
+plotD(a,df,n)
+}
+
+```
+
+------------------------------------------------------------------------
+
+```{r}
+#| echo: false
+#| warning: false
+#| label: HPOX Variable 
+#| fig-cap: Density plot by variable.
+#| fig-height: 12
+#| fig-width: 7
+
+cat("HYPOX")
+n<-4
+a<-c(1:31)
+df<-data_hpx
+plotD(a,df,n)
+```
+
+### Transform variables
+
+Transform percentages to logit
+
+```{r}
+#| echo: false
+#| warning: false
+# p <- invlogit(x)
+# x <- logit(p)
+to_logit<-function(df,pctes){
+aaa<-as.data.frame(sapply(df[pctes] , function(x) replace(x, x == 0, 0.0001)))
+aaa<-as.data.frame(sapply(aaa , function(x) ifelse(is.na(x),NA,logit(x/100))))
+return(aaa)}
+```
+
+Transform rest of variables to log
+
+```{r}
+#| echo: false
+#| warning: false
+to_log<-function(df,rest){
+bbb<-as.data.frame(sapply(df[rest] , function(x) replace(x, x == 0, 0.0001)))  
+bbb<-as.data.frame(sapply(bbb , function(x) ifelse(is.na(x),NA,log(x))))
+return(bbb)
+}
+```
+
+Apply logit and log
+
+```{r}
+#| echo: false
+#| warning: false
+log_logit<-function (df){
+pctes<-Features[grepl("%",Features)]
+rest<-c(setdiff(Features,pctes))
+aaa<-to_logit(df,pctes)
+bbb<-to_log(df,rest)
+data_tf<-cbind(aaa,bbb)
+data_tf<-data_tf %>% select(order(colnames(data_tf)))
+return(data_tf)
+}
+
+
+```
+
+### Remove outliers
+
+Detect outliers (1.5 x IQR) function
+
+```{r Remove outliers,echo=FALSE }
+outliers <- function(x, na.rm = TRUE, ...) {
+  qnt <- quantile(as.numeric(x), probs=c(.25, .75), na.rm = TRUE)
+  H <- 1.5 * IQR(x, na.rm = TRUE)
+  y <- x
+  y[x < (qnt[1] - H)] <- NA
+  y[x > (qnt[2] + H)] <- NA
+  y
+}
+```
+
+Build Wrapper Remove
+
+```{r}
+remove_outliers<-function(df,Features){ 
+  df<-df %>% dplyr::select(Features)
+  nam<-colnames(df)
+  df_NO <- as.data.frame(lapply(df , function(x) outliers(x)))
+  df_Out <- lapply(df_NO , function(x) which(is.na((x))))
+  names(df_Out)<-nam
+  names(df_NO)<-nam
+  return(list(df_NO,df_Out))
+}
+```
+
+Apply transformation functions and remove outliers
+
+```{r}
+dffsl<-data_slm %>% log_logit # %>% remove_outliers
+dffhp<-data_hpx %>% log_logit
+```
+
+```{r}
+# Keep outliers? in not normal variables
+non_normal<-Features[c(3,5,10:12,14)]#remove non normal after transformation
+normal<-setdiff(Features,non_normal)
+
+#Function 
+outlier_list_slam<-remove_outliers(dffsl,normal) 
+data_Out_sl<-outlier_list_slam[[2]]
+
+outlier_list_hpx<-remove_outliers(dffhp,normal) 
+data_Out_hpx<-outlier_list_hpx[[2]]
+
+#Insert NAs in SLAM dataset
+SL<-data_slm[,Features]
+i<-1
+for(x in data_Out_sl){
+  vble<-names(data_Out_sl)[i] 
+  SL[x,vble]<-NA
+  i<-1+i
+}
+data_slm_no<-cbind(data_slm[,1:8],SL)
+data_slm_no<-data_slm_no %>%mutate(wave=1) %>% relocate(wave,.after=cohort)
+
+#Insert NAs in HPOX dataset
+HP<-data_hpx[,Features]
+i<-1
+for(x in data_Out_hpx){
+  vble<-names(data_Out_hpx)[i] 
+  HP[x,vble]<-NA
+  i<-1+i
+}
+
+data_hpx_no<-cbind(data_hpx[,1:9],HP)#Up to nine to include cohort
+data_hpx_no<-data_hpx_no %>% relocate(wave,.after=cohort)
+rm(list=ls()[c(1,9:11,13,15:18,23,27,31,32)])
+```
+
+Impute mean value by variable, treatment and timepoint
+
+```{r}
+library(reshape2)
+
+data<-data_hpx_no
+
+imputes<-function (data,vbles){
+  for (i in 1:length(vbles)){
+    name<-Features[i]
+    variable<-data[,name]
+    meanes<-with(data,tapply(variable,list(Treatment,wave),mean,na.rm = TRUE))
+    meanes<-reshape2::melt(meanes)
+    colnames(meanes)[1:2]<-c("Treatment","wave")
+    aa<-c("Treatment","wave",name)
+    if (all(!is.na(data[aa]))) {
+    next
+    }else{
+    cc<-data[,aa] %>% left_join(meanes,by=c("Treatment","wave")) 
+    ff<-with(data,ifelse(is.na(cc[,3]),cc[,4],cc[,3]))
+    data[,name]<-round(ff,digit=2)
+    }
+
+}
+return(data)
+}
+
+
+    
+
+```
+
+```{r}
+data_hpx_no_mi<-imputes(data_hpx_no,Features)
+data_slm_no_mi<-imputes(data_slm_no,Features)
+```
+
+Select option to continue (impute missing or not)
+
+Select option to continue (with or without outliers)
+
+```{r}
+#| echo: false
+#| warning: false
+
+if(params$outliers){
+  all<-rbind(data_hpx,data_slm)
+}else{
+  if(params$impute){
+    all<-rbind(data_hpx_no_mi,data_slm_no_mi)
+  }else{
+  all<-rbind(data_hpx_no,data_slm_no)}
+}
+```
+
+Select option to continue (with or without extra category)
+
+```{r}
+if(params$filter_extra){
+  all<-all %>% filter(Treatment!="Extra")
+}
+```
+
+Select option to continue (with or without SLAM comparison)
+
+```{r}
+if(params$filter_slam){
+  all<-all %>% filter(Treatment!="Slam")
+    all$Treatment<-as.factor(all$Treatment)
+    levels(all$Treatment)[3]<-"Control"
+    all$Treatment<-factor(all$Treatment,levels=c("Control","Ctrl + IH","IH + Recovery"))
+}else{
+   all$Treatment<-as.factor(all$Treatment)
+    levels(all$Treatment)[4]<-"Control"
+    all$Treatment<-factor(all$Treatment,levels=c("Control","Slam","Ctrl + IH","IH + Recovery"))
+}
+```
+
+### Plotting
+
+#### Quantiles all datapoints
+
+```{r}
+plotA<-function(x){All_vb<-c(Features[a],"Treatment")
+data<-all %>% dplyr::select(All_vb)
+df<-reshape2::melt(data, key = "variable", value = "value")
+
+if(params$notch){
+  ggplot(df, aes(x=Treatment, y=value)) +
+  geom_boxplot(notch=T)+#outlier.shape = NA,show.legend = FALSE) + 
+  theme(panel.background = element_rect(fill = "wheat"))+
+  facet_wrap(~variable, ncol=2, scales = "free")
+  
+}else{
+  ggplot(df, aes(x=Treatment, y=value)) +
+  geom_boxplot()+#outlier.shape = NA,show.legend = FALSE) + 
+  theme(panel.background = element_rect(fill = "wheat"))+
+  facet_wrap(~variable, ncol=2, scales = "free")
+  }
+}
+```
+
+```{r}
+#| echo: false
+#| warning: false
+#| fig-height: 10
+#| fig-width: 7
+a<-c(1:8)
+plotA(a)
+```
+
+------------------------------------------------------------------------
+
+```{r}
+#| echo: false
+#| warning: false
+#| fig-height: 10
+#| fig-width: 7
+a<-c(9:16)
+plotA(a)
+```
+
+------------------------------------------------------------------------
+
+```{r}
+#| echo: false
+#| warning: false
+#| fig-height: 10
+#| fig-width: 7
+a<-c(17:24)
+plotA(a)
+```
+
+------------------------------------------------------------------------
+
+```{r}
+#| echo: false
+#| warning: false
+#| fig-height: 10
+#| fig-width: 7
+a<-c(25:31)
+plotA(a)
+```
+
+#### Cross setional by timepoint
+
+Determine variables of interest
+
+```{r}
+#variable names
+Var<-c(
+"#Retic(x10E09 cells/L)",                       
+"%EOS(%)",                     "%LUC(%)",                     "%LYM(%)", 
+"%MONO(%)",                    "%NEUT(%)",                    "%Retic(%)",
+"abs_eos(x10E03 cells/µL)", 
+"abs_lucs(x10E03 cells/µL)",   "abs_lymphs(x10E03 cells/µL)", 
+"abs_monos(x10E03 cells/µL)",  "abs_neuts(x10E03 cells/µL)", 
+"CHCM(g/dL)",                  "HCT(%)",                      "HDW(g/dL)",                "MCH(pg)",          "MCHC(g/dL)",                  "MCV(fL)",                  "measHGB(g/dL)",               "MPV(fL)",           "PLT(x10E03 cells/µL)",        "RBC(x10E06 cells/µL)",        "RDW(%)",                
+"WBC(x10E03 cells/µL)"  
+)
+
+#Change column names to be handled by the models
+# 
+# Short<-c("Reti_n", "Eos_p","Luc_p","Lym_p",
+#          "Mono_p", "Neu_p", "Reti_p", "Eos_n",
+#          "Luc_n","Lym_n", "Mon_n", "Neu_n",
+#          "CHCM","HTC", 
+#          "HCDW","MCH",
+#          "MCHC",
+#          "MCV","HGB","MPV",
+#          "Plt","RBC","RDW", "WBC")
+# 
+# 
+# #Labels (one per variable)
+# nam <- c("Reticulocyte", "Eosinophil","Large Unstained Cell","Lymphocyte",
+#          "Monocyte", "Neutrophil", "Reticulocite", "Eosinophil",
+#          "Large Unstained Cell","Lymphocyte", "Monocyte", "Neutrophil",
+#          "Corpuscular Hgb Conc. Mean","Hematocrit", 
+#          "Hgb Conc. Distribution Width","Mean Corpuscular Hemoglobin",
+#          "Mean Corpuscular Hgb Concentration",
+#          "Mean Corpuscular Volume","Hemoglobin","Mean Platelet Volume",
+#          "Platelet","Red Blood Cell","RBC Distribution Width", "White Blood Cell")
+# 
+# #Units of thos variables
+# units<-c("count x10E09 cells/L","%","%","%","%","%","%","%",
+#          "count x10E03 cells/µL","count x10E03 cells/µL","count x10E03 cells/µL",
+#          "count x10E03 cells/µL","count x10E03 cells/µL","count x10E03 cells/µL",
+#          "g/dL","%","g/dL","pg","g/dL","fL","g/dL","fL",
+#          "count x10E03 cells/µL","count x10E06 cells/µL","%",
+#          "count x10E03 cells/µL")
+```
+
+```{r}
+#variable names
+Var<-c("CHCM(g/dL)","HCT(%)", "measHGB(g/dL)", "PLT(x10E03 cells/µL)","RBC(x10E06 cells/µL)","RDW(%)",                
+"WBC(x10E03 cells/µL)")
+
+#Change column names to be handled by the models
+
+Short<-c("CHCM","HTC","HGB","Plt","RBC","RDW", "WBC")
+
+
+#Labels (one per variable)
+nam <- c("Corpuscular Hgb Conc. Mean","Hematocrit", 
+         "Hemoglobin","Platelet","Red Blood Cell","RBC Distrib. Width", "White Blood Cell")
+
+#Units of thos variables
+units<-c("g/dL","%","g/dL","count x10E03 cells/µL","count x10E06 cells/µL","%",
+         "count x10E03 cells/µL")
+```
+
+Select dataset. Include 4 timepoints (repeated 9 months old in slam).
+
+```{r}
+#| echo: false
+#| warning: false
+#Buil 4 timepoints with same values in slam to appear in all time points comparison
+xx<-1
+if(!params$filter_slam){
+    all2<-all %>% filter(Treatment=="Slam") %>% mutate(wave=2)
+    all3<-all %>% filter(Treatment=="Slam") %>% mutate(wave=3)
+    all4<-all %>% filter(Treatment=="Slam") %>% mutate(wave=4)
+    dfff<-as_tibble(rbind(all,all2,all3,all4))
+    rm(all2,all3,all4)
+    dfff<-dfff %>% rename_with(~ Short, all_of(Var))
+  }else{
+    dfff<-all  
+    dfff<-dfff %>% rename_with(~ Short, all_of(Var))
+
+}
+
+#make a list
+df_by_var <- rep(c("dfff"),
+               times=c(length(Short)))
+
+```
+
+```{r}
+#| echo: false
+#| warning: false
+
+mytheme <- theme(panel.background = element_rect(fill = "white"),
+                 panel.grid = element_line(color = "light gray", size = 0.1, linetype = "dotted"),
+                 plot.title = element_text(face = "bold", hjust = 0.5),
+                 plot.subtitle = element_text(face = "bold", hjust = 0.5),
+                 text = element_text(family="Century Schoolbook"))
+```
+
+Plot function using Wilcox_test
+
+```{r}
+plot_slam2 <- function(df_nam, var_nam, label, unit) {
+    df_list <- eval(rlang::sym(df_nam))
+    var <- rlang::sym(var_nam)
+
+    y_lim_top <- df_list[[var_nam]] %>% max(na.rm = TRUE)
+    y_lim_bottom <- df_list[[var_nam]] %>% min(na.rm = TRUE)
+    df_y <- df_list %>%
+        group_by(wave) %>%
+        summarise(ymax = max(eval(var), na.rm = TRUE))
+    scale <- df_list %>%
+        summarise(scale = (max(eval(var), na.rm = TRUE) - min(eval(var), na.rm = TRUE)) / 15) %>%
+        .[[1]]
+    if(!params$filter_slam){
+          df_p <- df_list %>%
+              group_by(wave) %>%
+              wilcox_test(as.formula(paste(var_nam, "Treatment", sep="~"))) %>%
+              adjust_pvalue(method = "BH") %>%
+              add_significance("p.adj") %>% 
+              filter(group1 == "Control" | group2 == "IH + Recovery") %>% 
+              add_xy_position(x="Treatment", dodge=0.8) %>%
+              mutate(xmin = case_when(group1=="Control" & wave==1 ~ 0.65,
+                                      group1=="Control" & wave==2 ~ 1.65,
+                                      group1=="Control" & wave==3 ~ 2.65,
+                                      group1=="Control" & wave==4 ~ 3.65,
+                                      
+                                      group1=="Slam" & wave==1 ~ 0.87,
+                                      group1=="Slam" & wave==2 ~ 1.87,
+                                      group1=="Slam" & wave==3 ~ 2.87,
+                                      group1=="Slam" & wave==4 ~ 3.87,
+                                      
+                                      group1=="Ctrl + IH" & wave==1 ~ 1.09,
+                                      group1=="Ctrl + IH" & wave==2 ~ 2.09,
+                                      group1=="Ctrl + IH" & wave==3 ~ 3.09,
+                                      group1=="Ctrl + IH" & wave==4 ~ 4.09),
+                     
+                     xmax = case_when(group1=="Control" & group2=="Slam" ~ (xmin+0.22),
+                                      group1=="Control" & group2=="Ctrl + IH" ~ (xmin+0.44),
+                                      group1=="Control" & group2=="IH + Recovery" ~ (xmin+0.66),
+                                      
+                                      group1=="Slam" & group2=="IH + Recovery" ~ (xmin+0.44),
+                                      group1=="Ctrl + IH" & group2=="IH + Recovery" ~ (xmin+0.22))) %>%
+              
+              left_join(., df_y, by = "wave") %>%
+              mutate(y.position = case_when(group1=="Control" & group2=="Slam" ~ (ymax+scale),
+                                            group1=="Control" & group2=="Ctrl + IH" ~ (ymax+scale*2),
+                                            group1=="Control" & group2=="IH + Recovery" ~ (ymax+scale*3),
+                                            group1=="Slam" & group2=="IH + Recovery" ~ (ymax+scale*4),
+                                            group1=="Ctrl + IH" & group2=="IH + Recovery" ~ (ymax+scale*5)))
+    }else{df_p <- df_list %>%
+              group_by(wave) %>%
+              wilcox_test(as.formula(paste(var_nam, "Treatment", sep="~"))) %>%
+              adjust_pvalue(method = "BH") %>%
+              add_significance("p.adj") %>% 
+              filter(group1 == "Control" | group2 == "IH + Recovery") %>% 
+              add_xy_position(x="Treatment", dodge=0.6) %>%
+              mutate(xmin = case_when(group1=="Control" & wave==1 ~ 0.65,
+                                      group1=="Control" & wave==2 ~ 1.65,
+                                      group1=="Control" & wave==3 ~ 2.65,
+                                      group1=="Control" & wave==4 ~ 3.65,
+                                      
+                                      group1=="Ctrl + IH" & wave==1 ~ 0.90,
+                                      group1=="Ctrl + IH" & wave==2 ~ 1.90,
+                                      group1=="Ctrl + IH" & wave==3 ~ 2.90,
+                                      group1=="Ctrl + IH" & wave==4 ~ 3.90),
+                                      
+                               
+                     xmax = case_when(group1=="Control" & group2=="Ctrl + IH" ~ (xmin+0.22+0.20),
+                                      group1=="Control" & group2=="IH + Recovery" ~ (xmin+0.44+0.25),
+                                      group1=="Ctrl + IH" & group2=="IH + Recovery" ~ (xmin+0.45))) %>%
+              
+              left_join(., df_y, by = "wave") %>%
+              mutate(y.position = case_when(group1=="Control" & group2=="Ctrl + IH" ~ (ymax+scale),
+                                            group1=="Control" & group2=="IH + Recovery" ~ (ymax+scale*2),
+                                            group1=="Ctrl + IH" & group2=="IH + Recovery" ~ (ymax+scale*3)))
+    }
+    df <- df_list
+    n1 <- count(df)[[1]]
+    df_p2<-df_p %>% mutate(p.adj.signif = str_replace(p.adj.signif, "ns", " "))
+      p_val<-paste0(label,"_pval",sep="")
+      assign(p_val,df_p2,envir = .GlobalEnv)
+    
+      plot_B6F <- ggboxplot(data = df, x="wave", y=var_nam, fill="Treatment",
+                          notch = FALSE, add = "jitter", add.params = list(color = "Treatment", alpha = 0.3,
+                                                                          show.legend = FALSE),
+                          ggtheme = mytheme) +
+        labs(y=paste(label, " (", unit, ")\n \n", sep=""), x="\n Time Point (2-week interval)", fill="Treatment") +
+        stat_pvalue_manual(
+            df_p2,  label = "p.adj.signif", tip.length = 0.01) +
+        scale_color_manual(name = "", values = c("Control" = "pink3", "IH + Recovery" = "wheat3", "Slam" = "pink", "Ctrl + IH" = "red3")) +
+        scale_fill_manual(name = "", values = c("Control" = "pink3", "IH + Recovery" = "wheat3", "Slam" = "pink", "Ctrl + IH" = "red3"))
+    plot_B6F <- ggpar(plot_B6F,
+                      ylim = c(y_lim_bottom, (y_lim_top+(scale*5))))
+    
+    
+      plot_B6F<- annotate_figure(plot_B6F,
+                    top = text_grob(paste(label, " Comparisons by Treatment and Timepoint", sep=""),
+                                          color = "black", face = "bold", size=14,
+                                    family = "Century Schoolbook"),
+                    bottom = text_grob("Wilcox Test Adjusted p-values (Bonferroni)  \n *: p < 0.05,   **: p < 0.01,   ***: p < 0.001,   ****: p < 0.0001 \n",
+                                      color = "black", face = "italic", size=10,
+       
+                                                                     family = "Century Schoolbook"),)
+
+    
+}
+```
+
+```{r}
+#| echo: false
+#| warning: false
+#i<-2
+
+#p<-plot_slam2(df_by_var[[i]], Short[i], nam[i], units[i])
+ # p<-plot_slam2("df", "HCT.Harmonize", nam[1], units[1])
+  #print(p)
+```
+
+Create lists of plots
+
+```{r}
+#| echo: false
+#| warning: false
+plot_list1 <- list()
+plot_list2 <- list()
+
+
+a<-round(length(Short)/2,digits = 0)
+b<-length(Short)
+
+
+for (i in seq_along(Short)[1:a]){
+    plot_nam <- paste("SLAM2_plot", i, sep="_")
+    output <- plot_slam2(df_by_var[[i]], Short[i], nam[i], units[i])
+    assign(plot_nam, output)
+}
+
+for (i in seq_along(Short)[(a+1):b]){
+    plot_nam <- paste("SLAM2_plot", i, sep="_")
+    output <- plot_slam2(df_by_var[[i]], Short[i], nam[i], units[i])
+    assign(plot_nam, output)
+}
+
+
+plot_list1 <- lapply(1:a, function(x) eval(parse(text=paste0("SLAM2_plot_", x))))
+plot_list2 <- lapply((a+1):b, function(x) eval(parse(text=paste0("SLAM2_plot_", x))))
+
+plot_list <- c(plot_list1, plot_list2)
+names(plot_list) <- Short[1:b]
+
+
+rm(list=ls(pattern="^SLAM2_plot"))
+rm(list=ls(pattern="list1$"))
+rm(list=ls(pattern="list2$"))
+
+```
+
+Plot
+
+```{r}
+#| echo: false
+#| warning: false
+for (i in 1:length(Short)) {
+    print(plot_list[[i]])
+}
+
+```
+
+### Summary
+
+```{r}
+#| echo: false
+#| warning: false
+dfff$cage<-as.factor(dfff$cage)
+dfff$idno<-as.factor(dfff$idno)
+dfff$wave<-as.factor(dfff$wave)
+
+
+summary(dfff[,union("Treatment",union("wave",Short))])
+```
+
+### Harmonization.
+
+#### Inter animal variation
+
+To analyse result of treatments filtering the variability of the animals we identify that variability fitting a mixed effect model on 4 time-points. We determine the intercept differences for each animal and remove them from the data set. We include cage and age correction.
+
+```{r}
+#intercept slope and cage
+# library(lme4)
+# 
+# Harmonize<-function (dataframe,Variables){
+#       i<-1; 
+#       df<-as.data.frame(get(dataframe))
+#       Harmo_list<-list()
+#       i<-1
+#       for (i in 1:length(Variables)) {
+#         
+#           name_pre<-Variables[i]#name of predictor e.g. rbc
+#           predictor<-with(df,get(name_pre))# extract the values of that column e.g., rbc
+#           mod<-lmer(predictor ~ Treatment + (1|cage)+(age_wk|idno) ,df)#model
+#           intercept<-ranef(mod)#extract All random intercept differences.
+#           intercept_id<-intercept$idno #filter cohort only 
+#           intercept_cage<-intercept$cage #filter cohort only 
+#           intercept_id<-rownames_to_column(intercept_id, "idno") %>% 
+#             rename(slop_id=age_wk)%>% rename(int_id=`(Intercept)`)
+#           intercept_cage<-rownames_to_column(intercept_cage, "cage") %>% rename(int_cage=`(Intercept)`)
+#           
+#           #Subtract that coefficient per cohort and variable from original values.
+#           df<-df %>% left_join(., intercept_cage, by = "cage") %>% 
+#                          left_join(., intercept_id, by = c("idno")) %>% 
+#                                mutate(redu_slop=(age_wk-40)*slop_id) %>% 
+#                                   mutate(xx=round((predictor-redu_slop-int_cage-int_id),digit=2)) %>% 
+#                                                  rename(!!paste(name_pre, "Harmonized", sep = ".") := xx)
+#           
+#           df<-df %>% select(!(int_cage:redu_slop))
+#           Harmo_list[[i]]<-mod
+#           i<-1+i
+#       }
+#   names(Harmo_list)<-Variables
+#   data_hr<-paste0(dataframe,"_harmonized",sep="")
+#   list_hr<-paste0("list_models_",dataframe,"_harmonized",sep="")
+#   assign(data_hr,df, envir=globalenv())
+#   assign(list_hr,Harmo_list, envir=globalenv())
+#   return(df)
+# }
+```
+
+Only intercept correction
+
+```{r}
+#| echo: false
+#| warning: false
+library(lme4)
+
+Harmonize<-function (dataframe,Variables){
+      i<-1; 
+      df<-as.data.frame(get(dataframe))
+      Harmo_list<-list()
+      i<-1
+      for (i in 1:length(Variables)) {
+          name_pre<-Variables[i]#name of predictor e.g. rbc
+          predictor<-with(df,get(name_pre))# extract the values of that column e.g., rbc
+          mod<-lmer(predictor ~ Treatment + age_wk + (1|cage)+(1|idno) ,df)#model
+          intercept<-ranef(mod)#extract All random intercept differences.
+          intercept_id<-intercept$idno 
+          intercept_id<-rownames_to_column(intercept_id, "idno") %>% rename(int_id=`(Intercept)`) 
+             df<-df %>%left_join(., intercept_id, by = c("idno")) %>% 
+                               mutate(xx=round((predictor-int_id),digit=2)) %>% 
+                                                 rename(!!paste(name_pre, "Harmonized", sep = ".") := xx)
+         # 
+          df<-df %>% select(!(int_id))
+          Harmo_list[[i]]<-mod
+          i<-1+i
+      }
+  names(Harmo_list)<-Variables
+  data_hr<-paste0(dataframe,"_harmonized",sep="")
+  list_hr<-paste0("list_models_",dataframe,"_harmonized",sep="")
+  assign(data_hr,df, envir=globalenv())
+  assign(list_hr,Harmo_list, envir=globalenv())
+  return(df)
+}
+```
+
+```{r}
+#| echo: false
+#| warning: false
+#| include: false
+Harmonize("dfff",Short)
+cat("BB")
+```
+
+#### Check ICC before/after harmonization
+
+Before
+
+```{r}
+#| echo: false
+#| warning: false
+#| include: false
+BB<-lapply(list_models_dfff_harmonized,summary)
+CC<-lapply(BB,function(x) as.data.frame(x$varcor)[,c(1,4)])
+Pct_variance_cohort<-t(as.data.frame(lapply(CC,function(x) 100*(x[1,2]/sum(x[,2])))))
+colnames(Pct_variance_cohort)<-"Variance_inter_animal(%)"
+rm(BB,CC)
+
+as.data.frame(Pct_variance_cohort) %>% arrange(desc(`Variance_inter_animal(%)`))%>% round(digit=4)
+
+ICCTrain<-as.data.frame(Pct_variance_cohort) %>% arrange(desc(`Variance_inter_animal(%)`))%>% round(digit=1)
+```
+
+```{r}
+kable(ICCTrain)
+#write.csv(ICCTrain,"ICCTrain.csv")
+```
+
+After
+
+```{r}
+#| echo: false
+#| warning: false
+#| include: false
+Featur_ht<-paste0(c(Short),".Harmonized",sep="")
+Harmonize(dataframe="dfff_harmonized",Variables = Featur_ht)
+cat("AA")
+```
+
+```{r}
+#| echo: false
+#| warning: false
+#| include: false
+BB<-lapply(list_models_dfff_harmonized_harmonized,summary)
+CC<-lapply(BB,function(x) as.data.frame(x$varcor)[,c(1,4)])
+Pct_variance_cohort_harmonized<-t(as.data.frame(lapply(CC,function(x) 100*(x[1,2]/sum(x[,2])))))
+colnames(Pct_variance_cohort_harmonized)<-"Variance_inter_animal(%)"
+rm(BB,CC,AA)
+
+as.data.frame(Pct_variance_cohort_harmonized) %>% arrange(desc(`Variance_inter_animal(%)`)) %>% round(digit=4)
+
+ICCTrain_hz<-as.data.frame(Pct_variance_cohort_harmonized) %>% arrange(desc(`Variance_inter_animal(%)`)) %>% round(digit=4)
+```
+
+```{r}
+kable(ICCTrain_hz)
+```
+
+```{r}
+#| echo: false
+#| warning: false
+#make a list
+df_by_var <- rep(c("dfff_harmonized"),
+               times=c(length(Short)))
+
+
+# i<-2
+# 
+# p<-plot_slam2_h(df_by_var[[i]], Short[i], nam[i], units[i])
+# #p<-plot_slam2("df", "HCT.Harmonize", nam[1], units[1])
+# print(p)
+```
+
+### Plotting Harmonized
+
+Load Function
+
+```{r}
+plot_slam2_h <- function(df_nam, var_nam, label, unit) {
+    df_list <- eval(rlang::sym(df_nam))
+    var_nam<-paste0(var_nam,".Harmonized")
+    var <- rlang::sym(var_nam)
+    y_lim_top <- df_list[[var_nam]] %>% max(na.rm = TRUE)
+    y_lim_bottom <- df_list[[var_nam]] %>% min(na.rm = TRUE)
+    df_y <- df_list %>%
+        group_by(wave) %>%
+        summarise(ymax = max(eval(var), na.rm = TRUE))
+    scale <- df_list %>%
+        summarise(scale = (max(eval(var), na.rm = TRUE) - min(eval(var), na.rm = TRUE)) / 15) %>%
+        .[[1]]
+    if(!params$filter_slam){
+          df_p <- df_list %>%
+              group_by(wave) %>%
+              wilcox_test(as.formula(paste(var_nam, "Treatment", sep="~"))) %>%
+              adjust_pvalue(method = "BH") %>%
+              add_significance("p.adj") %>% 
+              filter(group1 == "Control" | group2 == "IH + Recovery") %>% 
+              add_xy_position(x="Treatment", dodge=0.8) %>%
+              mutate(xmin = case_when(group1=="Control" & wave==1 ~ 0.65,
+                                      group1=="Control" & wave==2 ~ 1.65,
+                                      group1=="Control" & wave==3 ~ 2.65,
+                                      group1=="Control" & wave==4 ~ 3.65,
+                                      
+                                      group1=="Slam" & wave==1 ~ 0.87,
+                                      group1=="Slam" & wave==2 ~ 1.87,
+                                      group1=="Slam" & wave==3 ~ 2.87,
+                                      group1=="Slam" & wave==4 ~ 3.87,
+                                      
+                                      group1=="Ctrl + IH" & wave==1 ~ 1.09,
+                                      group1=="Ctrl + IH" & wave==2 ~ 2.09,
+                                      group1=="Ctrl + IH" & wave==3 ~ 3.09,
+                                      group1=="Ctrl + IH" & wave==4 ~ 4.09),
+                     
+                     xmax = case_when(group1=="Control" & group2=="Slam" ~ (xmin+0.22),
+                                      group1=="Control" & group2=="Ctrl + IH" ~ (xmin+0.44),
+                                      group1=="Control" & group2=="IH + Recovery" ~ (xmin+0.66),
+                                      
+                                      group1=="Slam" & group2=="IH + Recovery" ~ (xmin+0.44),
+                                      group1=="Ctrl + IH" & group2=="IH + Recovery" ~ (xmin+0.22))) %>%
+              
+              left_join(., df_y, by = "wave") %>%
+              mutate(y.position = case_when(group1=="Control" & group2=="Slam" ~ (ymax+scale),
+                                            group1=="Control" & group2=="Ctrl + IH" ~ (ymax+scale*2),
+                                            group1=="Control" & group2=="IH + Recovery" ~ (ymax+scale*3),
+                                            group1=="Slam" & group2=="IH + Recovery" ~ (ymax+scale*4),
+                                            group1=="Ctrl + IH" & group2=="IH + Recovery" ~ (ymax+scale*5)))
+    }else{df_p <- df_list %>%
+              group_by(wave) %>%
+              wilcox_test(as.formula(paste(var_nam, "Treatment", sep="~"))) %>%
+              adjust_pvalue(method = "BH") %>%
+              add_significance("p.adj") %>% 
+              filter(group1 == "Control" | group2 == "IH + Recovery") %>% 
+              add_xy_position(x="Treatment", dodge=0.6) %>%
+              mutate(xmin = case_when(group1=="Control" & wave==1 ~ 0.65,
+                                      group1=="Control" & wave==2 ~ 1.65,
+                                      group1=="Control" & wave==3 ~ 2.65,
+                                      group1=="Control" & wave==4 ~ 3.65,
+                                      
+                                      group1=="Ctrl + IH" & wave==1 ~ 0.90,
+                                      group1=="Ctrl + IH" & wave==2 ~ 1.90,
+                                      group1=="Ctrl + IH" & wave==3 ~ 2.90,
+                                      group1=="Ctrl + IH" & wave==4 ~ 3.90),
+                                      
+                               
+                     xmax = case_when(group1=="Control" & group2=="Ctrl + IH" ~ (xmin+0.22+0.20),
+                                      group1=="Control" & group2=="IH + Recovery" ~ (xmin+0.44+0.25),
+                                      group1=="Ctrl + IH" & group2=="IH + Recovery" ~ (xmin+0.45))) %>%
+              
+              left_join(., df_y, by = "wave") %>%
+              mutate(y.position = case_when(group1=="Control" & group2=="Ctrl + IH" ~ (ymax+scale),
+                                            group1=="Control" & group2=="IH + Recovery" ~ (ymax+scale*2),
+                                            group1=="Ctrl + IH" & group2=="IH + Recovery" ~ (ymax+scale*3)))
+    }
+    df <- df_list
+    n1 <- count(df)[[1]]
+    df_p2<-df_p %>% mutate(p.adj.signif = str_replace(p.adj.signif, "ns", " "))
+      p_val<-paste0(label,"_pval_harm",sep="")
+      assign(p_val,df_p2,envir = .GlobalEnv)
+    
+      plot_B6F <- ggboxplot(data = df, x="wave", y=var_nam, fill="Treatment",
+                          notch = FALSE, add = "jitter", add.params = list(color = "Treatment", alpha = 0.3,
+                                                                          show.legend = FALSE),
+                          ggtheme = mytheme) +
+        labs(y=paste(label, " (", unit, ")\n \n", sep=""), x="\n Time Point (2-week interval)", fill="Treatment") +
+        stat_pvalue_manual(
+            df_p2,  label = "p.adj.signif", tip.length = 0.01) +
+        scale_color_manual(name = "", values = c("Control" = "pink3", "IH + Recovery" = "wheat3", "Slam" = "pink", "Ctrl + IH" = "red3")) +
+        scale_fill_manual(name = "", values = c("Control" = "pink3", "IH + Recovery" = "wheat3", "Slam" = "pink", "Ctrl + IH" = "red3"))
+    plot_B6F <- ggpar(plot_B6F,
+                      ylim = c(y_lim_bottom, (y_lim_top+(scale*5))))
+    
+    
+      plot_B6F<- annotate_figure(plot_B6F,
+                    top = text_grob(paste(label, " Comparisons by Treatment and Timepoint \n Harmonized", sep=""),
+                                          color = "black", face = "bold", size=14,
+                                    family = "Century Schoolbook"),
+                    bottom = text_grob("Wilcox Test Adjusted p-values (Bonferroni)  \n *: p < 0.05,   **: p < 0.01,   ***: p < 0.001,   ****: p < 0.0001 \n",
+                                      color = "black", face = "italic", size=10,
+       
+                                                                     family = "Century Schoolbook"),)
+
+    
+}
+```
+
+```{r}
+#| echo: false
+#| warning: false
+#i<-2
+
+#p<-plot_slam2(df_by_var[[i]], Short[i], nam[i], units[i])
+ # p<-plot_slam2("df", "HCT.Harmonize", nam[1], units[1])
+  #print(p)
+```
+
+Create lists of plots
+
+```{r}
+#| echo: false
+#| warning: false
+plot_list1_h <- list()
+plot_list2_h <- list()
+
+
+a<-round(length(Short)/2,digits = 0)
+b<-length(Short)
+
+
+for (i in seq_along(Short)[1:a]){
+    plot_nam <- paste("SLAM2_plot_h", i, sep="_")
+    output <- plot_slam2_h(df_by_var[[i]], Short[i], nam[i], units[i])
+    assign(plot_nam, output)
+}
+
+for (i in seq_along(Short)[(a+1):b]){
+    plot_nam <- paste("SLAM2_plot_h", i, sep="_")
+    output <- plot_slam2_h(df_by_var[[i]], Short[i], nam[i], units[i])
+    assign(plot_nam, output)
+}
+
+
+plot_list1_h <- lapply(1:a, function(x) eval(parse(text=paste0("SLAM2_plot_h_", x))))
+plot_list2_h <- lapply((a+1):b, function(x) eval(parse(text=paste0("SLAM2_plot_h_", x))))
+
+plot_list <- c(plot_list1_h, plot_list2_h)
+names(plot_list) <- Short[1:b]
+
+
+rm(list=ls(pattern="^SLAM2_plot"))
+rm(list=ls(pattern="list1$"))
+rm(list=ls(pattern="list2$"))
+
+```
+
+Plot
+
+```{r}
+#| echo: false
+#| warning: false
+for (i in 1:length(Short)) {
+    print(plot_list[[i]])
+}
+
+```
+
+### Longitudinal modeling
+
+#### Not harmonized data
+
+```{r}
+#| echo: false
+#| warning: false
+Short
+pctes<-Short[c(2,6)]
+rest<-c(setdiff(Short,pctes))
+df<-dfff[,Short]# %>%select(Short)
+ph<-dfff[,c(1:9)]
+df<-cbind(df,ph)
+aaa<-to_logit(df,pctes) 
+aaa<-aaa%>% mutate_if(is.numeric, ~round(., 2))
+bbb<-to_log(df,rest)
+bbb<-bbb%>% mutate_if(is.numeric, ~round(., 2))
+df<-cbind(ph,aaa,bbb)
+df<-df %>% mutate(age2=age_wk*age_wk)
+
+modela<-function (dataframe,Variables){
+  LMM_list<-list()
+            for (i in 1:length(Variables)) {
+          name_pre<-Variables[i]#name of predictor e.g. rbc
+          predictor<-with(df,get(name_pre))# extract the values of that column e.g., rbc
+          mod<-lmer(scale(predictor) ~ Treatment + age_wk + (1|cage)+(1|idno) ,df)#model
+          LMM_list[[i]]<-mod
+          
+      }
+  names(LMM_list)<-Variables
+  list_hr<-paste0("lmm",1,sep="")
+  assign(list_hr,LMM_list, envir=globalenv())
+}
+modela(df,Short)
+#format(Sys.time(), "%s")
+```
+
+```{r}
+#| echo: false
+#| warning: false
+lapply(lmm1,summ)
+```
