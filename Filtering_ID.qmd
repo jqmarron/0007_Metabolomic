@@ -63,9 +63,13 @@ BW data
 #| echo: false
 #| warning: false
 #| include: false
-BW <- read_csv("BW_2022-12-12.csv",
-col_types = cols(idno = col_character(),
-date = col_date(format = "%m/%d/%Y"))) %>% mutate(age_wk=round(age_wk,digits = 1))
+BW <- read_csv("BW_2022-12-12.csv", 
+        col_types = cols(idno = col_character(), 
+        date = col_date(format = "%m/%d/%Y"), 
+        tod = col_date(format = "%m/%d/%Y"), 
+        sex = col_factor(levels = c("F", 
+            "M")), strain = col_factor(levels = c("B6", 
+            "HET3")))) %>% mutate(age_wk=round(age_wk,digits = 1))
 glimpse(BW)
 
 ```
@@ -76,234 +80,130 @@ ID Metabolome
 #| echo: false
 #| warning: false
 #| include: false
-Ref_values <- read_excel("Tables/Source/Jax_ref_52weeks_B6_F.xlsx")
+ID_Aon <- read_excel("ID_metabolome_Miguel.xlsx") %>% mutate(ID_MB=id)
 
+View(ID_metabolome_Miguel)
+glimpse(ID_Aon)
 ```
+
 
 ```{r}
-if(params$filter_extra){
-  HYPX<-HYPX %>% filter(Treatment!="Extra")
-}
+ID_conversion <- read_excel("Metabo_ID_SLAM_conversion.xlsx")
+glimpse(ID_conversion)
 ```
+
+
+```{r}
+SV <- read_csv("survival_detailed_2022-12-14.csv",
+col_types = cols(tod = col_date(format = "%m/%d/%Y"),
+sex = col_factor(levels = c("F",
+"M")), strain = col_factor(levels = c("HET3",
+"B6")), dob = col_date(format = "%m/%d/%Y"),
+idno = col_character(), cage = col_character(),
+dead_censor_nat = col_factor(levels = c("0",
+"1"))))
+glimpse(SV)
+
+```
+
+
+
 
 Clean covariates of interest
 
-```{r}
-#| echo: false
-#| warning: false
-#| include: false
-FeaturesSD<-sort(colnames(HYPX)[c(12:30,35:40,43,44,68,74,204,431)])
-Features<-sort(colnames(slam)[c(29:47,52:57,60,61,85,91,221,448)])
-slam$Treatment<-"Slam"
-datS<-slam %>% dplyr::select(Features)
-data_slm<-cbind(slam[,c(1,8,515,12,14,5,6,2)],datS)
-data_slm$wave<-1  
-data_slm <- data_slm %>% relocate(wave, .after = cohort)
-datH<-HYPX %>% dplyr::select(FeaturesSD)
-data_hpx<-cbind(HYPX[,c(1:8,497)],datH)
-colnames(datH)<-Features
-colnames(data_hpx)[c(1,8,2,6,7,5)]<-c("idno","cohort","cage","sex","strain","age_wk")
-rm(list=ls()[-c(1,2,5,8)])
-colnames(data_hpx)<-colnames(data_slm)
-all.equal(colnames(data_slm),colnames(data_hpx))
-```
-
-Variable to double
-
-```{r}
-#| echo: false
-#| warning: false
-#| include: false
-data_hpx <-
-  data_hpx |>
-  convert(dbl(`CHCMg(g/dL)` )) |>
-  convert(dbl(`CHg(pg)`)) 
-
-data_slm <-
-  data_slm |>
-  convert(dbl(`CHCMg(g/dL)` )) |>
-  convert(dbl(`CHg(pg)`)) 
-
-```
-
-Remove NAs SLAM
-
-```{r}
-#| include: false
-#| echo: false
-#Check NAs from SLAM
-apply(apply(data_slm,2,is.na),2,sum)
-#Remove 60 NAs from SLAM
-data_slm_removed<-data_slm %>% filter(is.na(`MCV(fL)`))
-data_slm<-data_slm %>% filter(!is.na(`MCV(fL)`))
-apply(apply(data_slm,2,is.na),2,sum)
-```
-
 ### Covariates
 
+Filter TRF out: 
+
+
 ```{r}
-#Features of interest
-Features<-c(
-"# Plt Clumps",                "#Retic(x10E09 cells/L)",      "%BASO(%)",                   
-"%EOS(%)",                     "%LUC(%)",                     "%LYM(%)",                    
-"%MONO(%)",                    "%NEUT(%)",                    "%Retic(%)",                  
-"abs_basos(x10E03 cells/µL)",  "abs_eos(x10E03 cells/µL)",    "abs_lucs(x10E03 cells/µL)",  
-"abs_lymphs(x10E03 cells/µL)", "abs_monos(x10E03 cells/µL)",  "abs_neuts(x10E03 cells/µL)", 
-"CHCM(g/dL)",                  "CHCMg(g/dL)",                 "CHg(pg)",                    
-"HCT(%)",                      "HDW(g/dL)",                   "MCH(pg)",                    
-"MCHC(g/dL)",                  "MCV(fL)",                     "measHGB(g/dL)",              
-"MPV(fL)",                     "PCT(%)",                      "PDW(%)",                     
-"PLT(x10E03 cells/µL)",        "RBC(x10E06 cells/µL)",        "RDW(%)",                     
-"WBC(x10E03 cells/µL)" )
-
-
-
+ID_conversion_SL<-ID_conversion %>% 
+  filter(GROUP_NAME=="SLAM") %>% mutate(idno=ID_SLAM)
 
 ```
 
-Filter SLAM: Out cohort on intervention, B6, females, only 35- to 45-week aged
+Check records with more than one BW, same day, same animal ID
 
 ```{r}
-data_slm<-data_slm %>% 
-  filter(cohort!="11",cohort!="12",strain=="B6",sex=="F") %>% 
-  filter(age_wk>=35,age_wk<=45)
-
-```
-
-Check records with more than one test, same day, same animal ID
-
-```{r}
-Duplicated<-data_slm %>% 
+Duplicated<-BW %>% 
   group_by(idno,age_wk) %>% 
   filter(n()>1)
 
 ```
 
-Remove NAs Hpox
-
+Remove duplicated
 ```{r}
-data_hpx<-data_hpx %>% filter(!is.na(`MPV(fL)`))
+BW_no_dupes<-BW %>% 
+  group_by(idno,age_wk) %>% 
+  filter(!n()>1) %>% as.data.frame()
+
 ```
 
-### Remove dilution factor 1/4
 
+### Join data tables
 ```{r}
-#| echo: false
-#| warning: false
-#remove dilution factor 1/4 only in SLAM (TRAIN+TEST)
-#diluted<-Features[c(1,9:14,18,23,27,28,30)]
-
-# PCT(%) is not diluted, correspond to the SD of the platelets distribution. More flat means more variability and more activation together with High MPV. However is not comparable because is more diluted. PDW(%) RDW(%) similar 
- if(params$clumps_x4){
-  diluted<-c(
-  "#Retic(x10E09 cells/L)",      "abs_basos(x10E03 cells/µL)",  "abs_eos(x10E03 cells/µL)",   
-  "abs_lucs(x10E03 cells/µL)",   "abs_lymphs(x10E03 cells/µL)", "abs_monos(x10E03 cells/µL)", 
-  "abs_neuts(x10E03 cells/µL)",  "HCT(%)",                      "measHGB(g/dL)",              
-  "PLT(x10E03 cells/µL)",        "RBC(x10E06 cells/µL)",        "WBC(x10E03 cells/µL)",
-  "# Plt Clumps")   
- }else{
- diluted<-c(
-  "#Retic(x10E09 cells/L)",      "abs_basos(x10E03 cells/µL)",  "abs_eos(x10E03 cells/µL)",   
-  "abs_lucs(x10E03 cells/µL)",   "abs_lymphs(x10E03 cells/µL)", "abs_monos(x10E03 cells/µL)", 
-  "abs_neuts(x10E03 cells/µL)",  "HCT(%)",                      "measHGB(g/dL)",              
-  "PLT(x10E03 cells/µL)",        "RBC(x10E06 cells/µL)",        "WBC(x10E03 cells/µL)")
- }
-
-# do not remove dilution factor in clumps
-#Pseudothrombocytopenia due to time in processing the sample and EDTA. PLT Clumps should be diluted but when we compare 1/4
-#with non-diluted the number of clumps increases in diluted
-
-data_slm<-data_slm %>% 
-    mutate_at(vars(all_of(diluted)),
-              .funs = funs(. * 4))
-data_hpx<-data_hpx %>% 
-    mutate_at(vars(all_of(diluted)),
-              .funs = funs(. * 4))
-  
+A<-BW %>% left_join(ID_conversion_SL, by = ("idno"),multiple = "all") %>% 
+  filter(!is.na(ID_MB))
+B<-A[which(A$ID_MB %in% ID_Aon$ID_MB),] 
+B<-B %>% select(-strain.y) %>% rename(strain="strain.x")
+rm(A)
 ```
 
-### Zero inflation test
 
 ```{r}
-zer<-data.frame(colSums(data_slm[,Features]==0))
-colnames(zer)<-"SLAM"
-zer$`%_slam`<-round((zer$SLAM/dim(data_slm)[1])*100,digit=2)
-zer$HPOX<-colSums(data_hpx[,Features]==0)
-zer$`%_hpox`<-round((zer$HPOX/dim(data_hpx)[1])*100,digit=2)
-zer<-zer %>% arrange(`%_hpox`)
-table_zeros<-DT::datatable(zer,caption="MICE WITH ZERO COUNTS")
-rm(zer)
-table_zeros
+C<-B %>% left_join(SV %>% select(idno, dob,cage,dead_censor_nat,sex,strain,cohort),
+                   by=c("idno"))
+
+
 ```
+
+
+```{r}
+C<-C %>% rename(strain="strain.y")
+C<-C %>% mutate(sextrainx = paste0(sex.x,strain.x,sep="")) %>% 
+                              mutate(sextrainx = as.factor(sextrainx))
+C<-C %>% mutate(sextrainy = paste0(sex.y,strain,sep="")) %>% 
+                              mutate(sextrainy = as.factor(sextrainy))
+
+```
+
+
+
 
 ### Variable densities
 
 ```{r}
 #| echo: false
 #| warning: false
-plotD<-function(x,df,n){
 
-  All_vb<-c(Features[x])
-data<-df %>% dplyr::select(all_of(All_vb))
-dff<-reshape2::melt(data, key = "variable", value = "value")
-p<-ggplot(dff, aes(value)) +
+p<-ggplot(C, aes(x = bw)) +
   geom_density() +
   theme(panel.background = element_rect(fill = "wheat"))+
-  facet_wrap(~variable, ncol = n,scales = "free")
+  facet_wrap(~sextrainy, ncol=2, scales = "free")
 print(p)
-}
 ```
 
-```{r}
-#| echo: false
-#| warning: false
-#| label: SLAM Variable  
-#| fig-cap: Density plot by variable.
-#| fig-height: 12
-#| fig-width: 7
-if(!params$filter_slam){
-cat("SLAM")
-n<-4
-a<-c(1:31)
-df<-data_slm
-plotD(a,df,n)
-}
 
-```
 
 ------------------------------------------------------------------------
 
-```{r}
-#| echo: false
-#| warning: false
-#| label: HPOX Variable 
-#| fig-cap: Density plot by variable.
-#| fig-height: 12
-#| fig-width: 7
 
-cat("HYPOX")
-n<-4
-a<-c(1:31)
-df<-data_hpx
-plotD(a,df,n)
-```
+### Transform variables and remove outliers
 
-### Transform variables
+<!-- Transform percentages to logit -->
 
-Transform percentages to logit
+<!-- ```{r} -->
+<!-- #| echo: false -->
+<!-- #| warning: false -->
+<!-- # p <- invlogit(x) -->
+<!-- # x <- logit(p) -->
+<!-- to_logit<-function(df,pctes){ -->
+<!-- aaa<-as.data.frame(sapply(df[pctes] , function(x) replace(x, x == 0, 0.0001))) -->
+<!-- aaa<-as.data.frame(sapply(aaa , function(x) ifelse(is.na(x),NA,logit(x/100)))) -->
+<!-- return(aaa)} -->
+<!-- ``` -->
 
-```{r}
-#| echo: false
-#| warning: false
-# p <- invlogit(x)
-# x <- logit(p)
-to_logit<-function(df,pctes){
-aaa<-as.data.frame(sapply(df[pctes] , function(x) replace(x, x == 0, 0.0001)))
-aaa<-as.data.frame(sapply(aaa , function(x) ifelse(is.na(x),NA,logit(x/100))))
-return(aaa)}
-```
-
-Transform rest of variables to log
+Transform variables to log
 
 ```{r}
 #| echo: false
@@ -315,40 +215,78 @@ return(bbb)
 }
 ```
 
-Apply logit and log
+Apply log
 
 ```{r}
 #| echo: false
 #| warning: false
-log_logit<-function (df){
-pctes<-Features[grepl("%",Features)]
-rest<-c(setdiff(Features,pctes))
-aaa<-to_logit(df,pctes)
-bbb<-to_log(df,rest)
-data_tf<-cbind(aaa,bbb)
-data_tf<-data_tf %>% select(order(colnames(data_tf)))
-return(data_tf)
-}
+log_bw<-to_log(C,"bw")
+D<-cbind(C,log_bw)
+colnames(D)[length(colnames(D))]<-c("log_bw")
 
 
 ```
+
+
+### Drop NAs 
+```{r}
+E<-D %>% filter(!is.na(bw))
+
+```
+
 
 ### Remove outliers
 
 Detect outliers (1.5 x IQR) function
 
 ```{r Remove outliers,echo=FALSE }
-outliers <- function(x, na.rm = TRUE, ...) {
-  qnt <- quantile(as.numeric(x), probs=c(.25, .75), na.rm = TRUE)
-  H <- 1.5 * IQR(x, na.rm = TRUE)
-  y <- x
-  y[x < (qnt[1] - H)] <- NA
-  y[x > (qnt[2] + H)] <- NA
-  y
+library(ggplot2)
+library(data.table)
+
+#generate some data
+dat <- data.table(E)
+# ggplot defines an outlier by default as something that's > 1.5*IQR from the borders of the box.
+
+#function that takes in vector of data and a coefficient,
+#returns boolean vector if a certain point is an outlier or not
+check_outlier <- function(v, coef=1.5){
+  quantiles <- quantile(v,probs=c(0.25,0.75))
+  IQR <- quantiles[2]-quantiles[1]
+  res <- v < (quantiles[1]-coef*IQR)|v > (quantiles[2]+coef*IQR)
+  return(res)
 }
+
+#apply this to our data
+dat[,outlier:= check_outlier (log_bw),by = sextrainy]
+dat[,label:=ifelse(outlier,"out","")]
+G<-dat %>% filter(label!="out")
+
+#plot
+p1<-ggplot(dat,aes(x=sextrainy,y=log_bw))+geom_boxplot()+geom_text(aes(label=label),hjust=-0.3)
+print(p1)
 ```
 
-Build Wrapper Remove
+
+```{r Remove outliers,echo=FALSE }
+p2<-ggplot(G,aes(x=sextrainy,y=log_bw))+geom_boxplot()+geom_text(aes(label=label),hjust=-0.3)
+print(p2)
+
+```
+
+
+```{r}
+p<-ggplot(G, aes(x = bw)) +
+  geom_density() +
+  theme(panel.background = element_rect(fill = "wheat"))+
+  facet_wrap(~sextrainy, ncol=2, scales = "free")
+print(p)
+```
+
+
+
+
+
+Build Wrapper Remove to store removed
 
 ```{r}
 remove_outliers<-function(df,Features){ 
@@ -364,22 +302,16 @@ remove_outliers<-function(df,Features){
 
 Apply transformation functions and remove outliers
 
-```{r}
-dffsl<-data_slm %>% log_logit # %>% remove_outliers
-dffhp<-data_hpx %>% log_logit
-```
 
 ```{r}
-# Keep outliers? in not normal variables
-non_normal<-Features[c(3,5,10:12,14)]#remove non normal after transformation
-normal<-setdiff(Features,non_normal)
+#| echo: false
+#| warning: false
 
-#Function 
-outlier_list_slam<-remove_outliers(dffsl,normal) 
+outlier_list_slam<-outliers(BW_no_dupes$log_bw) 
+
+
 data_Out_sl<-outlier_list_slam[[2]]
 
-outlier_list_hpx<-remove_outliers(dffhp,normal) 
-data_Out_hpx<-outlier_list_hpx[[2]]
 
 #Insert NAs in SLAM dataset
 SL<-data_slm[,Features]
@@ -392,18 +324,6 @@ for(x in data_Out_sl){
 data_slm_no<-cbind(data_slm[,1:8],SL)
 data_slm_no<-data_slm_no %>%mutate(wave=1) %>% relocate(wave,.after=cohort)
 
-#Insert NAs in HPOX dataset
-HP<-data_hpx[,Features]
-i<-1
-for(x in data_Out_hpx){
-  vble<-names(data_Out_hpx)[i] 
-  HP[x,vble]<-NA
-  i<-1+i
-}
-
-data_hpx_no<-cbind(data_hpx[,1:9],HP)#Up to nine to include cohort
-data_hpx_no<-data_hpx_no %>% relocate(wave,.after=cohort)
-rm(list=ls()[c(1,9:11,13,15:18,23,27,31,32)])
 ```
 
 Impute mean value by variable, treatment and timepoint
